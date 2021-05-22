@@ -7,3 +7,4 @@ Pillow
 python-dotenv
 slowapi
 aiofiles
+python-multipart
