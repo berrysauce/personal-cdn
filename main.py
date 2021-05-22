@@ -118,10 +118,9 @@ async def upload(item: Item, request: Request, username: str = Depends(get_curre
         compressed = False
             
         # Save Image Metadata    
-        metaResponse = meta.put({"file_type": file_type,
-                          "compressed": compressed,
-                          "uploaded_by": username,
-                          "uploaded_on": str(date.today())
+        metaResponse = meta.put({"compressed": compressed,
+                        "uploaded_by": username,
+                        "uploaded_on": str(date.today())
                         })
         imgID = str(metaResponse["key"])
         
