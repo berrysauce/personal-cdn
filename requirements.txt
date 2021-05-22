@@ -1,8 +1,9 @@
-deta~=0.8
-pydantic~=1.8.1
-requests~=2.25.1
-uvicorn~=0.13.4
-fastapi~=0.65.1
-Pillow~=8.2.0
-python-dotenv~=0.17.1
-slowapi~=0.1.4
+deta
+pydantic
+requests
+uvicorn
+fastapi
+Pillow
+python-dotenv
+slowapi
+aiofiles
