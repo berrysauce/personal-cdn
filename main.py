@@ -75,14 +75,12 @@ async def root(request: Request):
     return generate_html_response()
 
 
-@app.get("/upload", response_class=HTMLResponse)
+@app.get("/form", response_class=HTMLResponse)
 def form():
     return """
     <h1>Upload an image<h1>
     <p>You need a brry Auth account to do this.<p>
     <form action="/upload" enctype="multipart/form-data" method="post">
-        <input name="username" type="text">
-        <input name="password" type="password">
         <input name="file" type="file">
         <input type="submit">
     </form>
