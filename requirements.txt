@@ -1,5 +1,4 @@
 deta~=0.8
-pyfigle~=0.8.post1
 pydantic~=1.8.1
 requests~=2.25.1
 uvicorn~=0.13.4
