@@ -139,7 +139,7 @@ async def upload(item: Item, request: Request, username: str = Depends(get_curre
         raise HTTPException(status_code=500, detail="Error - {0}".format(exception))
     
 
-@app.get("/form")
+@app.get("/form", response_class=HTMLResponse)
 def form():
     return """
     <form action="/upload_form" enctype="multipart/form-data" method="post">
