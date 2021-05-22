@@ -97,24 +97,25 @@ async def get_image(imgID, request: Request, show_meta: Optional[bool] = False):
 @limiter.limit("30/minute")
 async def upload(item: Item, request: Request, username: str = Depends(get_current_username)):
     try:
-        tempID = str(random.randint(1000000000,9999999999))
+        #tempID = str(random.randint(1000000000,9999999999))
         
-        if item.file_type[:1] != ".":
-            file_type = "."+item.file_type
-        else:
-            file_type = item.file_type
+        #if item.file_type[:1] != ".":
+        #    file_type = "."+item.file_type
+        #else:
+        #    file_type = item.file_type
 
         # Save Image
-        with open("/tmp/"+tempID+file_type, "wb") as img:
-            img.write(base64.b64decode(item.image))
+        #with open("/tmp/"+tempID+file_type, "wb") as img:
+        #    img.write(base64.b64decode(item.image))
             
         # Compress Image
-        if item.compress is True and file_type in [".png", ".jpg", ".jpeg"]:
-            img = Image.open("/tmp/"+tempID+file_type)
-            img.save("/tmp/"+tempID+file_type, optimize=True,quality=80)
-            compressed = True
-        else:
-            compressed = False
+        #if item.compress is True and file_type in [".png", ".jpg", ".jpeg"]:
+        #    img = Image.open("/tmp/"+tempID+file_type)
+        #    img.save("/tmp/"+tempID+file_type, optimize=True,quality=80)
+        #    compressed = True
+        #else:
+        #    compressed = False
+        compressed = False
             
         # Save Image Metadata    
         metaResponse = meta.put({"file_type": file_type,
@@ -125,14 +126,14 @@ async def upload(item: Item, request: Request, username: str = Depends(get_curre
         imgID = str(metaResponse["key"])
         
         # Upload image and delete local copy
-        images.put(imgID+file_type, path="/tmp/"+tempID+file_type)
-        os.remove("/tmp/"+tempID+file_type)
+        images.put(imgID, data=item.image)
+        #images.put(imgID+file_type, path="/tmp/"+tempID+file_type)
+        #os.remove("/tmp/"+tempID+file_type)
             
         return {
             "detail": "Image uploaded",
             "img_id": imgID,
             "img_url": "cdn.lab.brry.cc"+"/image/"+imgID,
-            "file_type": file_type,
             "compressed": compressed
             }
     except Exception as exception:
