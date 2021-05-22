@@ -1,6 +1,6 @@
 deta==0.8
 pyfiglet==0.8.post1
-pydantic==1.8.1
+pydantic==1.8.2
 requests==2.25.1
 loguru==0.5.3
 uvicorn==0.13.4
