@@ -1,8 +1,8 @@
 import uvicorn
 import secrets
-from fastapi import Depends, FastAPI, HTTPException, status, Request
+from fastapi import Depends, FastAPI, HTTPException, status, Request, File, UploadFile
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -137,6 +137,28 @@ async def upload(item: Item, request: Request, username: str = Depends(get_curre
             }
     except Exception as exception:
         raise HTTPException(status_code=500, detail="Error - {0}".format(exception))
+    
+
+@app.get("/form")
+def form():
+    return """
+    <form action="/upload_form" enctype="multipart/form-data" method="post">
+        <input name="file" type="file">
+        <input type="submit">
+    </form>
+    """
+    
+@app.post("/upload_form")
+def upload_form(file: UploadFile = File(...)):
+    name = file.filename
+    f = file.file
+    res = images.put(name, f)
+    return res
+
+@app.get("/image_form/{name}")
+def download_img(name: str):
+    res = images.get(name)
+    return StreamingResponse(res.iter_chunks(1024), media_type="image/png")
     
 """
 @app.delete("/delete/{imgID}")
