@@ -85,7 +85,7 @@ def upload_form(request: Request, file: UploadFile = File(...), username: str = 
 
 @app.get("/image/{name}")
 @limiter.limit("1000/minute")
-def download_img(name: str, request: Request):
+def get_image(name: str, request: Request):
     res = images.get(name)
     return StreamingResponse(res.iter_chunks(1024), media_type="image/png")
 
