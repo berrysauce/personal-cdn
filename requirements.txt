@@ -1,10 +1,7 @@
-deta
-pydantic
-requests
 uvicorn
+requests
+deta
 fastapi
 Pillow
 python-dotenv
 slowapi
-aiofiles
-python-multipart
