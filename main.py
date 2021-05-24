@@ -1,24 +1,19 @@
 import uvicorn
-import secrets
 from fastapi import Depends, FastAPI, HTTPException, status, Request, File, UploadFile
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-import sys
 import os
-from pydantic import BaseModel
 from typing import Optional
-import base64
-import random
 import json
 from PIL import Image
 from datetime import date
-from mimetypes import guess_extension
 import requests
 from dotenv import load_dotenv
 from deta import Deta
+import uuid
 
 
 
@@ -43,13 +38,6 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 deta = Deta(DETA_TOKEN)
 images = deta.Drive("cdn-images")
 meta = deta.Base("cdn-meta")
-    
-
-def generate_html_response():
-    with open("assets/index.html", "r") as html:
-        html_content = html.read()
-    return HTMLResponse(content=html_content, status_code=200)
-
 
 def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
     data = json.dumps({
@@ -72,14 +60,15 @@ def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
 @app.get("/")
 @limiter.limit("1000/minute")
 async def root(request: Request):
-    return generate_html_response()
+    return {"msg": "Testing Deta Drive with a CDN"}
 
 
 @app.get("/form", response_class=HTMLResponse)
-def form():
+@limiter.limit("100/minute")
+def form(request: Request):
     return """
-    <h1>Upload an image<h1>
-    <p>You need a brry Auth account to do this.<p>
+    <h1>Upload an image</h1>
+    <p>You will need to authenticate yourself with a brry Auth account.</p>
     <form action="/upload" enctype="multipart/form-data" method="post">
         <input name="file" type="file">
         <input type="submit">
@@ -87,16 +76,16 @@ def form():
     """
     
 @app.post("/upload")
-def upload_form(file: UploadFile = File(...), username: str = Depends(get_current_username)):
-    name = file.filename
+@limiter.limit("100/minute")
+def upload_form(request: Request, file: UploadFile = File(...), username: str = Depends(get_current_username)):
+    name = str(uuid.uuid4())
     f = file.file
     res = images.put(name, f)
-    return {"img_name": res,
-            "uploaded_by": username
-    }
+    return RedirectResponse("https://cdn.labs.brry.cc/image/{res}")
 
 @app.get("/image/{name}")
-def download_img(name: str):
+@limiter.limit("1000/minute")
+def download_img(name: str, request: Request):
     res = images.get(name)
     return StreamingResponse(res.iter_chunks(1024), media_type="image/png")
 
