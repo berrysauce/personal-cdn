@@ -5,3 +5,4 @@ fastapi
 Pillow
 python-dotenv
 slowapi
+python-multipart
