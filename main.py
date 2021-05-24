@@ -80,8 +80,8 @@ def form(request: Request):
 def upload_form(request: Request, file: UploadFile = File(...), username: str = Depends(get_current_username)):
     name = str(uuid.uuid4())
     f = file.file
-    res = images.put(name, f)
-    return RedirectResponse("https://cdn.labs.brry.cc/image/{0}".format(res))
+    images.put(name, f)
+    return RedirectResponse("https://cdn.labs.brry.cc/image/{0}".format(name+f))
 
 @app.get("/image/{name}")
 @limiter.limit("1000/minute")
