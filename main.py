@@ -26,7 +26,7 @@ load_dotenv()
 DETA_TOKEN = os.getenv("DETA_TOKEN")
 TELEMETRY_TOKEN = os.getenv("TELEMETRY_TOKEN")
 
-app = FastAPI(title="brry CDN", redoc_url=None)
+app = FastAPI(title="berrysauce CDN", redoc_url=None)
 security = HTTPBasic()
 logger = Endpoint("https://telemetry.brry.cc", "brry-cdn", TELEMETRY_TOKEN)
 
@@ -120,7 +120,7 @@ def upload_form(file: UploadFile = File(...), username: str = Form(...), passwor
     return RedirectResponse(f"/file/{res}", status_code=status.HTTP_303_SEE_OTHER)
 
 @app.post("/upload")
-def upload(file: UploadFile = File(...), username: str = Depends(authenticate_post)):
+def upload(file: bytes, username: str = Depends(authenticate_post)):
     res = uploader(file, username)
     return {
         "detail": "File uploaded successfully!",
