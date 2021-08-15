@@ -6,3 +6,4 @@ Pillow
 python-dotenv
 slowapi
 python-multipart
+air-telemetry
