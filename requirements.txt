@@ -8,3 +8,4 @@ slowapi
 python-multipart
 air-telemetry
 aiofiles
+colorama
