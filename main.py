@@ -1,4 +1,3 @@
-from starlette.responses import FileResponse
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, status, Request, File, UploadFile, Form
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -6,6 +5,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 import os
 from typing import Optional
+from pydantic import BaseModel
 import json
 from datetime import timezone
 import datetime
@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from deta import Deta
 import uuid
 from air_telemetry import Endpoint
+import base64
 
 
 """
@@ -36,6 +37,8 @@ meta = deta.Base("cdn-meta")
 
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
+class Item(BaseModel):
+    file: bytes
 
 """
 --------------------------------------------------------------------------
@@ -116,12 +119,35 @@ def form():
 def upload_form(file: UploadFile = File(...), username: str = Form(...), password: str = Form(...)):
     if authenticate_form(username, password) is False:
         raise HTTPException(status_code=401, detail="Unauthorized - wrong username or password")
-    res = uploader(file, username)
+    id = str(uuid.uuid4())
+    f = file.file
+    res = drive.put(id, f)
+    
+    dt = datetime.datetime.now(timezone.utc)
+    utc_time = dt.replace(tzinfo=timezone.utc)
+    
+    meta.insert({
+        "file": res,
+        "uploaded_by": username,
+        "uploaded_on": str(utc_time.now())
+    })
+    logger.info(f"Uploaded files successfully by {username}")
     return RedirectResponse(f"/file/{res}", status_code=status.HTTP_303_SEE_OTHER)
 
 @app.post("/upload")
-def upload(file: bytes, username: str = Depends(authenticate_post)):
-    res = uploader(file, username)
+def upload(item: Item, username: str = Depends(authenticate_post)):
+    id = str(uuid.uuid4())
+    res = drive.put(id, base64.b64decode(item.file))
+    
+    dt = datetime.datetime.now(timezone.utc)
+    utc_time = dt.replace(tzinfo=timezone.utc)
+    
+    meta.insert({
+        "file": res,
+        "uploaded_by": username,
+        "uploaded_on": str(utc_time.now())
+    })
+    logger.info(f"Uploaded files successfully by {username}")
     return {
         "detail": "File uploaded successfully!",
         "file": res,
