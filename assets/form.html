@@ -96,11 +96,11 @@
                         <img src="assets/logo.png" style="width: 65px;">
                         <br>berrysauce CDN</h2>
                     <div style="border-radius: 5px; background-color: #ddd; padding: 20px 30px 20px 30px; margin-bottom: 20px;">
-                        <h3 style="font-family: Roboto Mono; font-weight: 600;">Upload an image</h3>
+                        <h3 style="font-family: Roboto Mono; font-weight: 600;">Upload a file</h3>
                         <p style="font-family: Roboto Mono;">You will need to authenticate yourself with a brry Auth account.</p>
                         <hr>
                         <form style="font-family: Roboto Mono;" action="/form/upload" enctype="multipart/form-data" method="post">
-                            <input name="file" type="file">
+                            <input name="file" type="file" accept="image/png, image/gif, image/jpeg, image/jpg, image/svg">
                             <input name="username" type="text" placeholder="Username">
                             <input name="password" type="password" placeholder="Password">
                             <input type="submit">

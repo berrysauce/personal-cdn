@@ -2,7 +2,6 @@ uvicorn
 requests
 deta
 fastapi
-Pillow
 python-dotenv
 slowapi
 python-multipart

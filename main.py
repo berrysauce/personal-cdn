@@ -1,3 +1,4 @@
+from starlette.responses import FileResponse
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, status, Request, File, UploadFile, Form
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -6,8 +7,8 @@ from fastapi.staticfiles import StaticFiles
 import os
 from typing import Optional
 import json
-from PIL import Image
-from datetime import date
+from datetime import timezone
+import datetime
 import requests
 from dotenv import load_dotenv
 from deta import Deta
@@ -15,15 +16,11 @@ import uuid
 from air_telemetry import Endpoint
 
 
-
-'''
-        brry CDN
------------------------------
-Self-hosted, easy to use CDN
-made in Python 3.9.
-License: General Copyright
-Author: berrysauce
-'''
+"""
+--------------------------------------------------------------------------
+SETUP
+--------------------------------------------------------------------------
+"""
 
 load_dotenv()
 DETA_TOKEN = os.getenv("DETA_TOKEN")
@@ -34,10 +31,17 @@ security = HTTPBasic()
 logger = Endpoint("https://telemetry.brry.cc", "brry-cdn", TELEMETRY_TOKEN)
 
 deta = Deta(DETA_TOKEN)
-images = deta.Drive("cdn-images")
+drive = deta.Drive("cdn-files")
 meta = deta.Base("cdn-meta")
 
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+
+
+"""
+--------------------------------------------------------------------------
+FUNCTIONS
+--------------------------------------------------------------------------
+"""
 
 def authenticate_post(credentials: HTTPBasicCredentials = Depends(security)):
     data = json.dumps({
@@ -76,9 +80,25 @@ def authenticate_form(username, password):
 def uploader(file, username):
     id = str(uuid.uuid4())
     f = file.file
-    res = images.put(id, f)
-    logger.info(f"Uploaded image successfully by {username}")
+    res = drive.put(id, f)
+    
+    dt = datetime.datetime.now(timezone.utc)
+    utc_time = dt.replace(tzinfo=timezone.utc)
+    
+    meta.insert({
+        "file": res,
+        "uploaded_by": username,
+        "uploaded_on": str(utc_time.now())
+    })
+    logger.info(f"Uploaded files successfully by {username}")
     return res
+
+
+"""
+--------------------------------------------------------------------------
+API ROUTES
+--------------------------------------------------------------------------
+"""
     
 @app.get("/")
 async def root():
@@ -97,26 +117,34 @@ def upload_form(file: UploadFile = File(...), username: str = Form(...), passwor
     if authenticate_form(username, password) is False:
         raise HTTPException(status_code=401, detail="Unauthorized - wrong username or password")
     res = uploader(file, username)
-    return RedirectResponse(f"/image/{res}", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(f"/file/{res}", status_code=status.HTTP_303_SEE_OTHER)
 
 @app.post("/upload")
 def upload(file: UploadFile = File(...), username: str = Depends(authenticate_post)):
     res = uploader(file, username)
     return {
-        "detail": "Image uploaded successfully!",
-        "image": res,
+        "detail": "File uploaded successfully!",
+        "file": res,
         "uploaded_by": username
     }
 
-@app.get("/image/{id}")
-def get_image(id: str):
-    res = images.get(id)
+@app.get("/file/{id}")
+def get_file(id: str, show_meta: Optional[bool] = False):
+    if show_meta:
+        return meta.fetch({"file": id}).items[0]
+    res = drive.get(id)
     return StreamingResponse(res.iter_chunks(1024), media_type="image/png")
 
 @app.get("/favicon.ico")
 def redirect_favicon():
     return RedirectResponse(f"/assets/favicon.ico", status_code=status.HTTP_303_SEE_OTHER)
 
+
+"""
+--------------------------------------------------------------------------
+UVICORN RUNNER
+--------------------------------------------------------------------------
+"""
 
 if __name__ == "__main__":
     uvicorn.run(app, host="localhost", port=80)
