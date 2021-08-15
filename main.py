@@ -133,6 +133,7 @@ def get_file(id: str, show_meta: Optional[bool] = False):
     if show_meta:
         return meta.fetch({"file": id}).items[0]
     res = drive.get(id)
+    # empty media type doesn't work on deta micro
     return StreamingResponse(res.iter_chunks(1024), media_type="image/png")
 
 @app.get("/favicon.ico")
