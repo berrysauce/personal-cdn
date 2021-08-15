@@ -1,10 +1,8 @@
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, status, Request, File, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, status, Request, File, UploadFile, Form
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import HTMLResponse, StreamingResponse, RedirectResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+from fastapi.staticfiles import StaticFiles
 import os
 from typing import Optional
 import json
@@ -14,6 +12,7 @@ import requests
 from dotenv import load_dotenv
 from deta import Deta
 import uuid
+from air_telemetry import Endpoint
 
 
 
@@ -28,66 +27,95 @@ Author: berrysauce
 
 load_dotenv()
 DETA_TOKEN = os.getenv("DETA_TOKEN")
+TELEMETRY_TOKEN = os.getenv("TELEMETRY_TOKEN")
 
-app = FastAPI()
+app = FastAPI(title="brry CDN", redoc_url=None)
 security = HTTPBasic()
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+logger = Endpoint("https://telemetry.brry.cc", "brry-cdn", TELEMETRY_TOKEN)
 
 deta = Deta(DETA_TOKEN)
 images = deta.Drive("cdn-images")
 meta = deta.Base("cdn-meta")
 
-def get_current_username(credentials: HTTPBasicCredentials = Depends(security)):
+app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+
+def authenticate_post(credentials: HTTPBasicCredentials = Depends(security)):
     data = json.dumps({
         "userid": credentials.username,
-        "token": credentials.password
+        "token": credentials.password,
+        "app_identifier": "cdn"
     })
     r = requests.post("https://auth.brry.cc/check", data=data)
     rdata = json.loads(r.text)
     if r.status_code == 200 and rdata["valid"] is True:
-           return credentials.username
+        logger.info(f"Authorized user: {credentials.username}")
+        return credentials.username
     else:
-        print(r.status_code, rdata)
+        logger.warning(f"Failed to authorize user: {credentials.username}")
         raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
+                detail="Unauthorized - wrong username or password",
                 headers={"WWW-Authenticate": "Basic"},
         )
+        
+def authenticate_form(username, password):
+    data = json.dumps({
+        "userid": username,
+        "token": password,
+        "app_identifier": "cdn"
+    })
+    r = requests.post("https://auth.brry.cc/check", data=data)
+    rdata = json.loads(r.text)
+    if r.status_code == 200 and rdata["valid"] is True:
+        logger.info(f"Authorized user: {username}")
+        return True
+    else:
+        logger.warning(f"Failed to authorize user: {username}")
+        return False
     
+def uploader(file, username):
+    id = str(uuid.uuid4())
+    f = file.file
+    res = images.put(id, f)
+    logger.info(f"Uploaded image successfully by {username}")
+    return res
     
 @app.get("/")
-@limiter.limit("1000/minute")
-async def root(request: Request):
-    return {"msg": "Testing Deta Drive with a CDN"}
-
+async def root():
+    with open("assets/index.html", "r") as f:
+        html = f.read()
+    return HTMLResponse(html)
 
 @app.get("/form", response_class=HTMLResponse)
-@limiter.limit("100/minute")
-def form(request: Request):
-    return """
-    <h1>Upload an image</h1>
-    <p>You will need to authenticate yourself with a brry Auth account.</p>
-    <form action="/upload" enctype="multipart/form-data" method="post">
-        <input name="file" type="file">
-        <input type="submit">
-    </form>
-    """
-    
-@app.post("/upload")
-@limiter.limit("100/minute")
-def upload_form(request: Request, file: UploadFile = File(...), username: str = Depends(get_current_username)):
-    name = str(uuid.uuid4())
-    f = file.file
-    res = images.put(name, f)
-    return RedirectResponse("https://cdn.labs.brry.cc/image/{0}".format(res))
+def form():
+    with open("assets/form.html", "r") as f:
+        html = f.read()
+    return HTMLResponse(html)
 
-@app.get("/image/{name}")
-@limiter.limit("1000/minute")
-def get_image(name: str, request: Request):
-    res = images.get(name)
+@app.post("/form/upload")
+def upload_form(file: UploadFile = File(...), username: str = Form(...), password: str = Form(...)):
+    if authenticate_form(username, password) is False:
+        raise HTTPException(status_code=401, detail="Unauthorized - wrong username or password")
+    res = uploader(file, username)
+    return RedirectResponse(f"/image/{res}", status_code=status.HTTP_303_SEE_OTHER)
+
+@app.post("/upload")
+def upload(file: UploadFile = File(...), username: str = Depends(authenticate_post)):
+    res = uploader(file, username)
+    return {
+        "detail": "Image uploaded successfully!",
+        "image": res,
+        "uploaded_by": username
+    }
+
+@app.get("/image/{id}")
+def get_image(id: str):
+    res = images.get(id)
     return StreamingResponse(res.iter_chunks(1024), media_type="image/png")
+
+@app.get("/favicon.ico")
+def redirect_favicon():
+    return RedirectResponse(f"/assets/favicon.ico", status_code=status.HTTP_303_SEE_OTHER)
 
 
 if __name__ == "__main__":
